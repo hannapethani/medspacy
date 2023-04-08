@@ -45,28 +45,19 @@ def visualize_ent(
         targets = doc.spans[span_group_name]
     else:
         raise ValueError("Target span type must be either ents or group.")
-
-    for target in targets:
-        ent_data = {
-            "start": target.start_char,
-            "end": target.end_char,
-            "label": target.label_.upper(),
-        }
-        ents_data.append((ent_data, "ent"))
+    ents_data += [(_gather_target_vis_data(t), "ent") for t in targets]
 
     if context:
+        # Visualize modifiers that are modifying entities in the doc.
+        # Keep track if which modifiers we've already visualized
+        # so we don't repeat them if they modify multiple targets
+        # We won't visualize any orphan modifiers
         visualized_modifiers = set()
         for target in doc.ents:
             for modifier in target._.modifiers:
                 if modifier in visualized_modifiers:
                     continue
-                span = doc[modifier.modifier_span[0]: modifier.modifier_span[1]]
-                ent_data = {
-                    "start": span.start_char,
-                    "end": span.end_char,
-                    "label": modifier.category,
-                }
-                ents_data.append((ent_data, "modifier"))
+                ents_data.append((_gather_modifier_vis_data(modifier, doc), "modifier"))
                 visualized_modifiers.add(modifier)
     if sections:
         for section in doc._.sections:
@@ -113,6 +104,32 @@ def visualize_ent(
     return displacy.render(
         viz_data, style="ent", manual=True, options=options, jupyter=jupyter
     )
+
+def _gather_target_vis_data(target):
+    """Given a span from doc.ents or doc.spans[group_name], gather a dictionary with
+    data to pass into displacy.
+    """
+    return {
+        "start": target.start_char,
+        "end": target.end_char,
+        "label": target.label_.upper(),
+    }
+
+def _gather_modifier_vis_data(modifier, doc):
+    """Given a ConTextModifier from doc._.context_graph.modifiers, gather a dictionary with
+    data to pass into displacy."""
+    span = doc[modifier.modifier_span[0]: modifier.modifier_span[1]]
+    return {
+        "start": span.start_char,
+        "end": span.end_char,
+        "label": modifier.category,
+    }
+
+def _gather_section_vis_data(section, doc):
+    """Given a Section from doc._.sections, gather a dictionary with
+    data to pass into displacy."""
+    raise NotImplementedError()
+
 
 
 def _create_color_mapping(labels):
